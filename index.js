@@ -9,7 +9,7 @@ import jsdom from 'jsdom';
 import fs from 'fs';
 const { JSDOM } = jsdom;
 
-const SHOW_TEXT = 4 // from NodeFilter.SHOW_TEXT
+const SHOW_TEXT = 4; // from NodeFilter.SHOW_TEXT
 
 /**
  * Return all the text nodes, discarding the ones that are just whitespace and the ones that are in scripts.
