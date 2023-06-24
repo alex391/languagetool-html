@@ -1,5 +1,7 @@
 # LanguageTool for HTML
-A really simple node script for checking grammar and spelling in HTML documents.
+A really simple node script for checking grammar and spelling in HTML documents using [LanguageTool](https://languagetool.org).
+## Demo
+See the [demo](https://www.alexleute.com/languagetool-html/demo/demo.html)
 ## Usage
 Paste your HTML document in `in.html` and then run `node index.js`
 ## Licence
