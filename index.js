@@ -30,7 +30,7 @@ function nativeTreeWalker(document) {
 
     while (node = walker.nextNode()) {
         const value = node.nodeValue.trim().replace(/ +(?= )|\n/g, ''); // Trim, then remove more than one space, and newlines
-        if (value !== "" && node.parentNode.nodeName !== "SCRIPT") { // Only add the nodes that actually have more than whitespace in them, and discard scripts.
+        if (value !== "" && node.parentNode.nodeName !== "SCRIPT" && node.parentNode.nodeName !== "STYLE") { // Only add the nodes that actually have more than whitespace in them, and discard scripts.
             textNodes.push(value);
         }
     }
