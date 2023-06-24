@@ -4,13 +4,10 @@ Unported License. To view a copy of this license, visit
 http://creativecommons.org/licenses/by-sa/3.0/ or send a letter to Creative
 Commons, PO Box 1866, Mountain View, CA 94042, USA.
 */
-import fetch from 'node-fetch';
-import jsdom from 'jsdom';
-import fs from 'fs';
-const { JSDOM } = jsdom;
 
-const SHOW_TEXT = 4; // from NodeFilter.SHOW_TEXT
+// A client-side version of index.js. Sorry that this isn't DRY
 
+"use strict";
 /**
  * Return all the text nodes, discarding the ones that are just whitespace and the ones that are in scripts.
  * @param {*} document 
@@ -20,7 +17,7 @@ function nativeTreeWalker(document) {
     // Thanks to https://stackoverflow.com/a/2579869/12203444 by stackoverflow user Anurag https://stackoverflow.com/users/165737/anurag. Modified.
     const walker = document.createTreeWalker(
         document.body,
-        SHOW_TEXT,
+        NodeFilter.SHOW_TEXT,
         null,
         false
     );
@@ -38,7 +35,7 @@ function nativeTreeWalker(document) {
 }
 
 /**
- * Generate an underline for the word
+ * Generate an underline for the word.
  * @param {number} offset
  * @param {number} length
  * @returns something like "     ~~~~"
@@ -46,7 +43,7 @@ function nativeTreeWalker(document) {
 function asciiUnderline(offset, length) {
     let underline = "";
     for (let i = 0; i < offset; i++) {
-        underline += " ";
+        underline += "\xa0"; // non-breaking space
     }
     for (let i = 0; i < length; i++) {
         underline += "~";
@@ -57,8 +54,9 @@ function asciiUnderline(offset, length) {
 /**
  * Get language-tool suggestions and print them out to console
  * @param {*} formBody 
+ * @param {*} output the div to output to
  */
-async function fetchAndLog(formBody) {
+async function fetchAndLog(formBody, output) {
     // Thanks to https://stackoverflow.com/a/48410549/12203444 from stackoverflow user Rob Walker https://stackoverflow.com/users/3672622/rob-walker. Modified.
     const response = await fetch("https://api.languagetool.org/v2/check", {
         method: "POST",
@@ -70,34 +68,36 @@ async function fetchAndLog(formBody) {
     });
     const json = await response.json();
     for (const match of json.matches) {
-        console.log(match.context.text);
-        console.log(asciiUnderline(match.context.offset, match.context.length));
-        console.log(match.message);
+        // TODO change these to appending to output
+        output.appendChild(document.createTextNode(match.context.text));
+        output.appendChild(document.createElement("br"));
+        output.appendChild(document.createTextNode(asciiUnderline(match.context.offset, match.context.length)));
+        output.appendChild(document.createElement("br"));
+        output.appendChild(document.createTextNode(match.message));
+        output.appendChild(document.createElement("br"));
         if (match.replacements[0]) {
-            console.log(match.replacements[0].value);
+            output.appendChild(document.createTextNode(match.replacements[0].value));
+            output.appendChild(document.createElement("br"));
         }
-        console.log("===========================================================")
+        output.appendChild(document.createElement("hr"));
     }
 }
 
+// TODO listen for form onsubmit
+window.addEventListener("load", () => {
+    const output = document.getElementById("output");
+    output.textContent = "";
+    document.getElementsByTagName("form")[0].addEventListener("submit", (event) => {
+        event.preventDefault();
+        const html = document.getElementById("html-input").value;
+        const doc = new DOMParser().parseFromString(html, "text/html");
 
-function main() {
-    // Read in the file in.html and check it
-    fs.readFile('in.html', 'utf8', (err, data) => { // TODO in from stdin?
-        if (err) {
-            console.error(err);
-            return;
-        }
-        const document = new JSDOM(data).window.document;
-        const strings = nativeTreeWalker(document);
+        const strings = nativeTreeWalker(doc);
 
         for (const string of strings) {
             // TODO the things in here should be configurable! Or, determine language from the html tag?
             const formBody = `text=${encodeURIComponent(string)}&language=en-US&level=picky`;
-            fetchAndLog(formBody);
+            fetchAndLog(formBody, output);
         }
-
     });
-}
-
-main();
+});
