@@ -189,8 +189,8 @@ function sendRequests(strings, requests, chars) {
 
 window.addEventListener("load", () => {
     output = document.getElementById("output");
-    output.textContent = "";
     document.getElementsByTagName("form")[0].addEventListener("submit", async (event) => {
+        output.textContent = "";
         event.preventDefault();
         const html = document.getElementById("html-input").value;
         const doc = new DOMParser().parseFromString(html, "text/html");
