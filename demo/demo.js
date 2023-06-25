@@ -12,7 +12,9 @@ Commons, PO Box 1866, Mountain View, CA 94042, USA.
 // API rate limits per minute. 
 const MAX_REQUESTS = 20;
 const MAX_CHARS = 75000;
-const MAX_CHARS_REQ = 20000; // Can make this smaller in order to make requests smaller. LanguageTool will give up if they're too big. 20k is the max this can be.
+const MAX_CHARS_REQ = 20000 / 2; // Can make this smaller in order to make requests smaller. LanguageTool will give up if they're too big. 20k is the max this can be.
+
+let output; // The output div.
 
 /**
  * Return all the text nodes, discarding the ones that are just whitespace and the ones that are in scripts.
@@ -62,7 +64,7 @@ function asciiUnderline(offset, length) {
  * @param {*} formBody 
  * @param {*} output the div to output to
  */
-async function fetchAndLog(formBody, output) {
+async function fetchAndLog(formBody) {
     // Thanks to https://stackoverflow.com/a/48410549/12203444 from stackoverflow user Rob Walker https://stackoverflow.com/users/3672622/rob-walker. Modified.
     const response = await fetch("https://api.languagetool.org/v2/check", {
         method: "POST",
@@ -159,8 +161,34 @@ function breakUpSimple(string) {
     return broken;
 }
 
+/**
+ * Send requests to language tool. Thanks to https://stackoverflow.com/a/951111/12203444 (community wiki).
+ * @param {*} strings the strings for LanguageTool to check
+ * @param {number} requests how many requests have happened so far
+ * @param {number} chars how many chars have been sent
+ */
+function sendRequests(strings, requests, chars) {
+    const string = strings[0];
+    requests++;
+    chars += string.length;
+    if (requests <= MAX_REQUESTS && chars <= MAX_CHARS) {
+        const formBody = `text=${encodeURIComponent(string)}&language=en-US&level=picky`;
+        fetchAndLog(formBody);
+        strings.shift();
+        if (strings.length > 0) {
+            sendRequests(strings, requests, chars);
+        } else {
+            // Done.
+        }
+    } else {
+        output.appendChild(document.createTextNode("Please wait a few minutes, long inputs are rate limited."));
+        output.appendChild(document.createElement("hr"));
+        setTimeout(() => { sendRequests(strings, 0, 0) }, 1000 * 60);
+    }
+}
+
 window.addEventListener("load", () => {
-    const output = document.getElementById("output");
+    output = document.getElementById("output");
     output.textContent = "";
     document.getElementsByTagName("form")[0].addEventListener("submit", async (event) => {
         event.preventDefault();
@@ -171,22 +199,6 @@ window.addEventListener("load", () => {
         strings = splitUp(strings);
         strings = groupUp(strings, "\n");
 
-        let requests = 0;
-        let chars = 0;
-
-        for (const string of strings) {
-            requests++;
-            chars += string.length;
-            if (requests > MAX_REQUESTS || chars > MAX_CHARS) {
-                output.appendChild(document.createTextNode("Please wait a few minutes, long inputs are rate limited."));
-                output.appendChild(document.createElement("hr"));
-                await new Promise(r => setTimeout(r, 1000 * 60));
-                requests = 0;
-                chars = 0;
-            }
-            // TODO the things in here should be configurable! Or, determine language from the html tag?
-            const formBody = `text=${encodeURIComponent(string)}&language=en-US&level=picky`;
-            fetchAndLog(formBody, output);
-        }
+        sendRequests(strings, 0, 0);
     });
 });

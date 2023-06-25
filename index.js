@@ -13,7 +13,7 @@ const SHOW_TEXT = 4; // from NodeFilter.SHOW_TEXT
 // API rate limits per minute. 
 const MAX_REQUESTS = 20;
 const MAX_CHARS = 75000;
-const MAX_CHARS_REQ = 20000; // Can make this smaller in order to make requests smaller. LanguageTool will give up if they're too big. 20k is the max this can be.
+const MAX_CHARS_REQ = 20000 / 2; // Can make this smaller in order to make requests smaller. LanguageTool will give up if they're too big. 20k is the max this can be.
 
 /**
  * Return all the text nodes, discarding the ones that are just whitespace and the ones that are in scripts.
@@ -154,6 +154,32 @@ function breakUpSimple(string) {
     return broken;
 }
 
+/**
+ * Send requests to language tool. Thanks to https://stackoverflow.com/a/951111/12203444 (community wiki).
+ * @param {*} strings the strings for LanguageTool to check
+ * @param {number} requests how many requests have happened so far
+ * @param {number} chars how many chars have been sent
+ */
+function sendRequests(strings, requests, chars) {
+    const string = strings[0];
+    requests++;
+    chars += string.length;
+    if (requests <= MAX_REQUESTS && chars <= MAX_CHARS) {
+        const formBody = `text=${encodeURIComponent(string)}&language=en-US&level=picky`;
+        fetchAndLog(formBody);
+        strings.shift();
+        if (strings.length > 0) {
+            sendRequests(strings, requests, chars);
+        } else {
+            // Done.
+        }
+    } else {
+        console.log("Please wait a few minutes, long inputs are rate limited.");
+        console.log("===========================================================");
+        setTimeout(() => { sendRequests(strings, 0, 0) }, 1000 * 60);
+    }
+}
+
 
 function main() {
     // Read in the file in.html and check it
@@ -166,25 +192,7 @@ function main() {
         let strings = nativeTreeWalker(document);
         strings = splitUp(strings);
         strings = groupUp(strings, "\n");
-
-        let requests = 0;
-        let chars = 0;
-        for (const string of strings) {
-            requests++;
-            chars += string.length;
-            if (requests > MAX_REQUESTS || chars > MAX_CHARS) {
-                console.log("Please wait a few minutes, long inputs are rate limited.");
-                console.log("===========================================================");
-
-                await new Promise(r => setTimeout(r, 1000 * 60));
-                requests = 0;
-                chars = 0;
-            }
-            // TODO the things in here should be configurable! Or, determine language from the html tag?
-            const formBody = `text=${encodeURIComponent(string)}&language=en-US&level=picky`;
-            fetchAndLog(formBody);
-        }
-
+        sendRequests(strings, 0, 0);
     });
 }
 
