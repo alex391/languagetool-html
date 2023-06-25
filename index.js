@@ -97,7 +97,7 @@ function groupUp(strings, separator) {
     let string;
     do {
         string = strings.shift();
-        if (grouped[grouped.length - 1].length + string.length <= MAX_CHARS_REQ) {
+        if (grouped[grouped.length - 1].length + string.length + separator.length <= MAX_CHARS_REQ) {
             grouped[grouped.length - 1] += separator + string;
         } else {
             grouped.push(string);
