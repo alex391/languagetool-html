@@ -8,6 +8,12 @@ Commons, PO Box 1866, Mountain View, CA 94042, USA.
 // A client-side version of index.js. Sorry that this isn't DRY
 
 "use strict";
+
+// API rate limits per minute. 
+const MAX_REQUESTS = 20;
+const MAX_CHARS = 75000;
+const MAX_CHARS_REQ = 20000; // Can make this smaller in order to make requests smaller. LanguageTool will give up if they're too big. 20k is the max this can be.
+
 /**
  * Return all the text nodes, discarding the ones that are just whitespace and the ones that are in scripts.
  * @param {*} document 
@@ -83,18 +89,101 @@ async function fetchAndLog(formBody, output) {
     }
 }
 
-// TODO listen for form onsubmit
+/**
+ * Group up the strings for rate limiting (max chars/request is 20k)
+ * Note that all of the strings have to be less <= 20k characters long first.
+ * @param {*} strings an array of strings to group into 20k character long groups
+ * @param {string} separator the separator to use between each string
+ * @returns an array of strings that are each <= 20k characters long
+ */
+function groupUp(strings, separator) {
+    // Just greedily group strings together until it would be too long
+    const grouped = [strings.shift()];
+    let string;
+    do {
+        string = strings.shift();
+        if (grouped[grouped.length - 1].length + string.length <= MAX_CHARS_REQ) {
+            grouped[grouped.length - 1] += separator + string;
+        } else {
+            grouped.push(string);
+        }
+    } while (strings.length > 0);
+    return grouped;
+}
+/**
+ * Take an array of strings, and break all of them up for grouping
+ * @param {*} strings the array of strings to break upMAX_CHARS_PER
+ * @returns an array of strings suitable for group20K
+ */
+function splitUp(strings) {
+    let string;
+    let split = [];
+    while (string = strings.shift()) {
+        split = split.concat(breakUp(string));
+    }
+    return split;
+}
+/**
+ * Take a string that is longer than 20k characters long, and split it at either
+ * a ". " or just at 20k if there are none. For text nodes that have a lot of text in them
+ * @param {*} string 
+ */
+function breakUp(string) {
+    if (string.length <= MAX_CHARS_REQ) {
+        return [string];
+    }
+    if (string.includes(". ")) {
+        const split = string.split(". ");
+        let broken = [];
+        for (const s of split) {
+            broken = broken.concat(breakUpSimple(s)); // make sure run on sentences still get broken up.
+        }
+        return groupUp(broken, ". ");
+    } else {
+        return breakUpSimple(string);
+    }
+}
+/**
+ * Split a string into an array of strings that are less than 20k characters long
+ * @param {*} string the string to break up
+ */
+function breakUpSimple(string) {
+    if (string.length <= MAX_CHARS_REQ) {
+        return [string];
+    }
+    const broken = [];
+    do {
+        broken.push(string.substring(0, MAX_CHARS_REQ + 1));
+        string = string.substring(MAX_CHARS_REQ);
+    } while (string.length > 0);
+    return broken;
+}
+
 window.addEventListener("load", () => {
     const output = document.getElementById("output");
     output.textContent = "";
-    document.getElementsByTagName("form")[0].addEventListener("submit", (event) => {
+    document.getElementsByTagName("form")[0].addEventListener("submit", async (event) => {
         event.preventDefault();
         const html = document.getElementById("html-input").value;
         const doc = new DOMParser().parseFromString(html, "text/html");
 
-        const strings = nativeTreeWalker(doc);
+        let strings = nativeTreeWalker(doc);
+        strings = splitUp(strings);
+        strings = groupUp(strings, "\n");
+
+        let requests = 0;
+        let chars = 0;
 
         for (const string of strings) {
+            requests++;
+            chars += string.length;
+            if (requests > MAX_REQUESTS || chars > MAX_CHARS) {
+                output.appendChild(document.createTextNode("Please wait a few minutes, long inputs are rate limited."));
+                output.appendChild(document.createElement("hr"));
+                await new Promise(r => setTimeout(r, 1000 * 60));
+                requests = 0;
+                chars = 0;
+            }
             // TODO the things in here should be configurable! Or, determine language from the html tag?
             const formBody = `text=${encodeURIComponent(string)}&language=en-US&level=picky`;
             fetchAndLog(formBody, output);
