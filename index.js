@@ -182,8 +182,12 @@ function sendRequests(strings, requests, chars) {
 
 
 function main() {
+    let file = 'in.html';
+    if (process.argv[2]) {
+        file = process.argv[2];
+    }
     // Read in the file in.html and check it
-    fs.readFile('in.html', 'utf8', async (err, data) => { // TODO in from stdin?
+    fs.readFile(file, 'utf8', async (err, data) => { // TODO in from stdin?
         if (err) {
             console.error(err);
             return;
