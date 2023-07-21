@@ -102,14 +102,14 @@ function groupUp(strings, separator) {
     // Just greedily group strings together until it would be too long
     const grouped = [strings.shift()];
     let string;
-    do {
+    while (strings.length > 0) {
         string = strings.shift();
         if (grouped[grouped.length - 1].length + string.length <= MAX_CHARS_REQ) {
             grouped[grouped.length - 1] += separator + string;
         } else {
             grouped.push(string);
         }
-    } while (strings.length > 0);
+    };
     return grouped;
 }
 /**
