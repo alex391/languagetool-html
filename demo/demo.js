@@ -24,7 +24,7 @@ let output; // The output div.
 function nativeTreeWalker(document) {
     // Thanks to https://stackoverflow.com/a/2579869/12203444 by stackoverflow user Anurag https://stackoverflow.com/users/165737/anurag. Modified.
     const walker = document.createTreeWalker(
-        document.body,
+        document,
         NodeFilter.SHOW_TEXT,
         null,
         false
@@ -154,10 +154,10 @@ function breakUpSimple(string) {
         return [string];
     }
     const broken = [];
-    do {
+    while (string.length > 0) {
         broken.push(string.substring(0, MAX_CHARS_REQ + 1));
         string = string.substring(MAX_CHARS_REQ);
-    } while (string.length > 0);
+    }
     return broken;
 }
 

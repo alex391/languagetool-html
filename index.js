@@ -23,7 +23,7 @@ const MAX_CHARS_REQ = 20000 / 2; // Can make this smaller in order to make reque
 function nativeTreeWalker(document) {
     // Thanks to https://stackoverflow.com/a/2579869/12203444 by stackoverflow user Anurag https://stackoverflow.com/users/165737/anurag. Modified.
     const walker = document.createTreeWalker(
-        document.body,
+        document,
         SHOW_TEXT,
         null,
         false
@@ -95,14 +95,14 @@ function groupUp(strings, separator) {
     // Just greedily group strings together until it would be too long
     const grouped = [strings.shift()];
     let string;
-    do {
+    while (strings.length > 0) {
         string = strings.shift();
         if (grouped[grouped.length - 1].length + string.length + separator.length <= MAX_CHARS_REQ) {
             grouped[grouped.length - 1] += separator + string;
         } else {
             grouped.push(string);
         }
-    } while (strings.length > 0);
+    }
     return grouped;
 }
 /**
